@@ -44,7 +44,7 @@ def calc_predicted_points_for_pos(
         df_player = get_fitted_player_model(player_model, pos, season, session)
     for player in list_players(position=pos, dbsession=session):
         predictions[player.player_id] = calc_predicted_points(
-            player, team_model, df_player, season, tag, session, gw_range
+            player, team_model, df_player, season, tag, session, frozenset(gw_range)
         )
 
     return predictions

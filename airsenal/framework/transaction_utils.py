@@ -42,10 +42,11 @@ def fill_initial_team(session, season=CURRENT_SEASON, tag="AIrsenal" + CURRENT_S
         ### Season hasn't started yet - there won't be a team in the DB
         return True
     api_players = get_players_for_gameweek(1)
+    current_player_data = fetcher.get_player_summary_data()
     for pid in api_players:
-        gw1_data = fetcher.get_gameweek_data_for_player(pid, 1)
-        price = gw1_data[0]["value"]
-        add_transaction(pid, 1, 1, price, season, tag, session)
+        player_data = current_player_data[pid]
+        buy_price = player_data['now_cost'] - player_data['cost_change_start']
+        add_transaction(pid, 1, 1, buy_price, season, tag, session)
 
 
 def update_team(

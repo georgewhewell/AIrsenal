@@ -216,8 +216,9 @@ def calc_predicted_points(
         gw_range = list(
             range(NEXT_GAMEWEEK, min(next_gw + 3, 38))
         )  # don't go beyond gw 38!
+
     team = player.team(
-        season, gw_range[0]
+        season, next(iter(gw_range))
     )  # assume player stays with same team from first gameweek in range
     position = player.position(season)
     fixtures = get_fixtures_for_player(

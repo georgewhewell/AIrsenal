@@ -69,6 +69,7 @@ def process_strat(
     subprocess to go through a strategy and output a json file with
     the best players in, players out, and total score.
     """
+    starting_team = get_starting_team()
     while True:
         strat = queue.get()
         if strat == "DONE":
@@ -84,7 +85,7 @@ def process_strat(
         increment = 100 / num_increments
         num_iter = num_iterations
         strat_output = apply_strategy(
-            strat, tag, baseline, num_iter, (updater, increment, pid), budget
+            strat, starting_team, tag, baseline, num_iter, (updater, increment, pid), budget
         )
         with open(
             os.path.join(OUTPUT_DIR, "strategy_{}_{}.json".format(tag, sid)), "w"

@@ -10,10 +10,10 @@ import sys
 import json
 from sqlalchemy import desc
 
-from ..framework.schema import Team
-from ..framework.data_fetcher import FPLDataFetcher
-from ..framework.utils import CURRENT_SEASON, get_past_seasons
-from ..framework.schema import session_scope
+from airsenal.framework.schema import Team
+from airsenal.framework.data_fetcher import FPLDataFetcher
+from airsenal.framework.utils import CURRENT_SEASON, get_past_seasons
+from airsenal.framework.schema import session_scope
 
 
 def fill_team_table_from_file(filename, session):

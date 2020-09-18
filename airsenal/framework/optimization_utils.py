@@ -3,6 +3,7 @@ functions to optimize the transfers for N weeks ahead
 """
 
 import os
+import pickle
 import sys
 
 import random
@@ -225,16 +226,18 @@ def make_optimum_transfer(
     best_score = 0.0
     best_pid_out, best_pid_in = 0, 0
     ordered_player_lists = {}
+    best_team = team
+
     for pos in ["GK", "DEF", "MID", "FWD"]:
         ordered_player_lists[pos] = get_predicted_points(
-            gameweek=gameweek_range, position=pos, tag=tag
+            gameweek=frozenset(gameweek_range), position=pos, tag=tag
         )
     for p_out in team.players:
         if update_func_and_args:
             ## call function to update progress bar.
             ## this was passed as a tuple (func, increment, pid)
             update_func_and_args[0](update_func_and_args[1], update_func_and_args[2])
-        new_team = copy.deepcopy(team)
+        new_team = deepcopy(team)
         position = p_out.position
         new_team.remove_player(p_out.player_id, season=season, gameweek=transfer_gw)
         for p_in in ordered_player_lists[position]:
@@ -260,6 +263,13 @@ def make_optimum_transfer(
             best_team = new_team
     return best_team, [best_pid_out], [best_pid_in]
 
+DEEPCOPY_PICKLE = True
+if DEEPCOPY_PICKLE:
+    def deepcopy(obj):
+        return pickle.loads(pickle.dumps(obj, -1))
+else:
+    deepcopy = copy.deepcopy
+
 
 def make_optimum_double_transfer(
     team,
@@ -284,16 +294,18 @@ def make_optimum_double_transfer(
     best_score = 0.0
     best_pid_out, best_pid_in = 0, 0
     ordered_player_lists = {}
+    best_team = team
+
     for pos in ["GK", "DEF", "MID", "FWD"]:
         ordered_player_lists[pos] = get_predicted_points(
-            gameweek=gameweek_range, position=pos, tag=tag
+            gameweek=frozenset(gameweek_range), position=pos, tag=tag
         )
-
+    
     for i in range(len(team.players) - 1):
         positions_needed = []
         pout_1 = team.players[i]
 
-        new_team_remove_1 = copy.deepcopy(team)
+        new_team_remove_1 = deepcopy(team)
         new_team_remove_1.remove_player(
             pout_1.player_id, season=season, gameweek=transfer_gw
         )
@@ -305,7 +317,7 @@ def make_optimum_double_transfer(
                     update_func_and_args[1], update_func_and_args[2]
                 )
             pout_2 = team.players[j]
-            new_team_remove_2 = copy.deepcopy(new_team_remove_1)
+            new_team_remove_2 = deepcopy(new_team_remove_1)
             new_team_remove_2.remove_player(
                 pout_2.player_id, season=season, gameweek=transfer_gw
             )
@@ -321,14 +333,14 @@ def make_optimum_double_transfer(
                     or pin_1[0].player_id == pout_2.player_id
                 ):
                     continue  ## no point in adding same player back in
-                new_team_add_1 = copy.deepcopy(new_team_remove_2)
+                new_team_add_1 = deepcopy(new_team_remove_2)
                 added_1_ok = new_team_add_1.add_player(
                     pin_1[0], season=season, gameweek=transfer_gw
                 )
                 if not added_1_ok:
                     continue
                 for pin_2 in ordered_player_lists[positions_needed[1]]:
-                    new_team_add_2 = copy.deepcopy(new_team_add_1)
+                    new_team_add_2 = deepcopy(new_team_add_1)
                     if (
                         pin_2[0] == pin_1[0]
                         or pin_2[0].player_id == pout_1.player_id
@@ -382,7 +394,7 @@ def make_random_transfers(
     Do this num_iter times and choose the best total score over gw_range gameweeks.
     """
     best_score = 0.0
-    best_team = None
+    best_team = team
     best_pid_out = []
     best_pid_in = []
     max_tries = 100
@@ -391,7 +403,7 @@ def make_random_transfers(
             ## call function to update progress bar.
             ## this was passed as a tuple (func, increment, pid)
             update_func_and_args[0](update_func_and_args[1], update_func_and_args[2])
-        new_team = copy.deepcopy(team)
+        new_team = deepcopy(team)
         if not gw_range:
             gw_range = [NEXT_GAMEWEEK]
 
@@ -402,7 +414,7 @@ def make_random_transfers(
         player_list = []
         for p in team.players:
             p.calc_predicted_points(tag)
-            player_list.append((p.player_id, p.predicted_points[tag][gw_range[0]]))
+            player_list.append((p.player_id, p.predicted_points[tag][next(iter(gw_range))]))
         player_list.sort(key=itemgetter(1), reverse=False)
         while len(players_to_remove) < nsubs:
             index = int(random.triangular(0, len(player_list), 0))
@@ -420,7 +432,7 @@ def make_random_transfers(
         predicted_points = {}
         for pos in set(positions_needed):
             predicted_points[pos] = get_predicted_points(
-                position=pos, gameweek=gw_range, tag=tag
+                position=pos, gameweek=frozenset(gw_range), tag=tag
             )
         complete_team = False
         added_players = []
@@ -442,7 +454,7 @@ def make_random_transfers(
                 # try to avoid getting stuck in a loop
                 attempt += 1
                 if attempt > max_tries:
-                    new_team = copy.deepcopy(team)
+                    new_team = deepcopy(team)
                     break
                 # take those players out again.
                 for ap in added_players:
@@ -504,7 +516,7 @@ def make_new_team(
         # first iteration - fill up from the front
         for pos in positions:
             predicted_points[pos] = get_predicted_points(
-                gameweek=gw_range, position=pos, tag=tag, season=season
+                gameweek=frozenset(gw_range), position=pos, tag=tag, season=season
             )
             for pp in predicted_points[pos]:
                 t.add_player(pp[0], season=season, gameweek=transfer_gw)
@@ -566,7 +578,7 @@ def make_new_team(
 
 
 def apply_strategy(
-    strat, tag, baseline_dict=None, num_iter=1, update_func_and_args=None, verbose=False
+    strat, starting_team, tag, baseline_dict=None, num_iter=1, update_func_and_args=None, verbose=False
 ):
     """
     apply a set of transfers over a number of gameweeks, and
@@ -576,7 +588,6 @@ def apply_strategy(
     the total points hit.
     """
     sid = make_strategy_id(strat)
-    starting_team = get_starting_team()
     if verbose:
         print("Trying strategy {}".format(strat))
     best_score = 0
@@ -591,7 +602,7 @@ def apply_strategy(
         "players_out": {},
         "cards_played": {},
     }
-    new_team = copy.deepcopy(starting_team)
+    new_team = deepcopy(starting_team)
     ## If we use "free hit" card, we need to remember the team from the week before it
     team_before_free_hit = None
 
@@ -611,7 +622,7 @@ def apply_strategy(
         ## if we used a free hit in the previous gw, we will have stored the previous team, so
         ## we go back to that one now.
         if team_before_free_hit:
-            new_team = copy.deepcopy(team_before_free_hit)
+            new_team = deepcopy(team_before_free_hit)
             team_before_free_hit = None
 
         ## process this gameweek
@@ -653,7 +664,7 @@ def apply_strategy(
 
         elif strat[0][gw] == "F":  ## free hit - a whole new team!
             ## remember the starting team (so we can revert to it later)
-            team_before_free_hit = copy.deepcopy(new_team)
+            team_before_free_hit = deepcopy(new_team)
             ## now make a new team for this gw, as is done for wildcard
             rp = [p.player_id for p in new_team.players]
             budget = get_team_value(new_team)

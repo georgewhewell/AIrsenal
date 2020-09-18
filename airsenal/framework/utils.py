@@ -2,6 +2,7 @@
 Useful commands to query the db
 """
 import copy
+from functools import lru_cache
 from operator import itemgetter
 from datetime import datetime, timezone
 import pandas as pd
@@ -34,6 +35,7 @@ session = DBSession()
 
 fetcher = FPLDataFetcher()  # in global scope so it can keep cached data
 
+lru_cache = lru_cache(maxsize=512)
 
 def get_current_season():
     """
@@ -511,6 +513,7 @@ def get_player_attributes(
     return attr
 
 
+@lru_cache
 def get_fixtures_for_player(
     player, season=CURRENT_SEASON, gw_range=None, dbsession=None, verbose=False
 ):
@@ -532,7 +535,8 @@ def get_fixtures_for_player(
     if not player_record:
         print("Couldn't find {} in database".format(player))
         return []
-    team = player_record.team(season, gw_range[0])  # same team for whole gw_range
+
+    team = player_record.team(season, next(iter(gw_range)))  # same team for whole gw_range
     tag = get_latest_fixture_tag(season, dbsession)
     fixture_rows = (
         dbsession.query(Fixture)
@@ -562,6 +566,7 @@ def get_fixtures_for_player(
     return fixtures
 
 
+@lru_cache
 def get_next_fixture_for_player(
     player, season=CURRENT_SEASON, gameweek=NEXT_GAMEWEEK, dbsession=None
 ):
@@ -587,12 +592,14 @@ def get_next_fixture_for_player(
     return output_string[:-2]
 
 
+@lru_cache
 def get_fixtures_for_season(season=CURRENT_SEASON, dbsession=session):
     """Return all fixtures for a season."""
     fixtures = dbsession.query(Fixture).filter_by(season=season).all()
     return fixtures
 
 
+@lru_cache
 def get_fixtures_for_gameweek(gameweek, season=CURRENT_SEASON, dbsession=session):
     """
     Get a list of fixtures for the specified gameweek
@@ -606,12 +613,14 @@ def get_fixtures_for_gameweek(gameweek, season=CURRENT_SEASON, dbsession=session
     return [(fixture.home_team, fixture.away_team) for fixture in fixtures]
 
 
+@lru_cache
 def get_result_for_fixture(fixture, dbsession=session):
     """Get result for a fixture."""
     result = session.query(Result).filter_by(fixture=fixture).all()
     return result
 
 
+@lru_cache
 def get_player_scores_for_fixture(fixture, dbsession=session):
     """Get player scores for a fixture."""
     player_scores = session.query(PlayerScore).filter_by(fixture=fixture).all()
@@ -627,6 +636,7 @@ def get_players_for_gameweek(gameweek):
     return player_list
 
 
+@lru_cache
 def get_previous_points_for_same_fixture(player, fixture_id):
     """
     Search the past matches for same fixture in past seasons,
@@ -668,6 +678,7 @@ def get_previous_points_for_same_fixture(player, fixture_id):
     return previous_points
 
 
+@lru_cache
 def get_predicted_points_for_player(player, tag, season=CURRENT_SEASON, dbsession=None):
     """
     Query the player prediction table for a given player.
@@ -700,6 +711,7 @@ def get_predicted_points_for_player(player, tag, season=CURRENT_SEASON, dbsessio
     return ppdict
 
 
+@lru_cache
 def get_predicted_points(
     gameweek, tag, position="all", team="all", season=CURRENT_SEASON, dbsession=None
 ):
@@ -783,7 +795,7 @@ def get_top_predicted_points(
 
     if not per_position:
         pts = get_predicted_points(
-            gameweek,
+            frozenset(gameweek),
             tag,
             position=position,
             team=team,
@@ -811,7 +823,7 @@ def get_top_predicted_points(
     else:
         for position in ["GK", "DEF", "MID", "FWD"]:
             pts = get_predicted_points(
-                gameweek,
+                frozenset(gameweek),
                 tag,
                 position=position,
                 team=team,
@@ -1071,6 +1083,7 @@ def get_latest_fixture_tag(season=CURRENT_SEASON, dbsession=None):
     return rows[-1].tag
 
 
+@lru_cache
 def fixture_probabilities(gameweek, season=CURRENT_SEASON, dbsession=None):
     """
     Returns probabilities for all fixtures in a given gameweek and season, as a data frame with a row
@@ -1111,6 +1124,7 @@ def fixture_probabilities(gameweek, season=CURRENT_SEASON, dbsession=None):
     )
 
 
+@lru_cache
 def find_fixture(
     gameweek,
     team,
@@ -1202,6 +1216,7 @@ def find_fixture(
     return fixture
 
 
+@lru_cache
 def get_player_team_from_fixture(
     gameweek,
     opponent,
